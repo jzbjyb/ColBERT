@@ -2,7 +2,7 @@ from colbert.infra.run import Run
 import os
 import ujson
 
-from colbert.evaluation.loaders import load_queries
+from colbert.evaluation.loaders import load_queries, load_queries_fid
 
 # TODO: Look up path in some global [per-thread or thread-safe] list.
 # TODO: path could be a list of paths...? But then how can we tell it's not a list of queries..
@@ -51,7 +51,11 @@ class Queries:
         if not path.endswith('.json'):
             self.data = load_queries(path)
             return True
-        
+        else:  # load fid data
+            self.data, self.raw_queries = load_queries_fid(path)
+            return True
+
+        # TODO: handle the following code
         # Load QAs
         self.data = {}
         self._qas = {}

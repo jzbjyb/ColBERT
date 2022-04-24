@@ -1,3 +1,4 @@
+from typing import Union
 import os
 import tqdm
 import time
@@ -210,7 +211,7 @@ class CollectionIndexer():
 
         else:
             args_ = args_ + [[[sample]]]
-            centroids = compute_faiss_kmeans(*args_)
+            centroids = compute_faiss_kmeans(*args_, gpu=self.rank)
 
         centroids = torch.nn.functional.normalize(centroids, dim=-1).half()
 
@@ -361,8 +362,8 @@ class CollectionIndexer():
             f.write(ujson.dumps(d, indent=4) + '\n')
 
 
-def compute_faiss_kmeans(dim, num_partitions, kmeans_niters, shared_lists, return_value_queue=None):
-    kmeans = faiss.Kmeans(dim, num_partitions, niter=kmeans_niters, gpu=True, verbose=True, seed=123)
+def compute_faiss_kmeans(dim, num_partitions, kmeans_niters, shared_lists, return_value_queue=None, gpu: Union[int, bool]=True):
+    kmeans = faiss.Kmeans(dim, num_partitions, niter=kmeans_niters, gpu=gpu, verbose=True, seed=123)
 
     sample = shared_lists[0][0]
     sample = sample.float().numpy()

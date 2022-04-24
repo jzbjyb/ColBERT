@@ -1,3 +1,5 @@
+from typing import List, Dict
+import json
 import os
 import ujson
 import torch
@@ -28,6 +30,16 @@ def load_queries(queries_path):
     print_message("#> Got", len(queries), "queries. All QIDs are unique.\n")
 
     return queries
+
+
+def load_queries_fid(queries_path):
+  queries = OrderedDict()
+  print_message("#> Loading the queries from", queries_path, "...")
+  with open(queries_path, 'r') as fin:
+    data: List[Dict] = json.load(fin)
+    for qid, query in enumerate(data):
+      queries[qid] = query['question']
+  return queries, data
 
 
 def load_qrels(qrels_path):
@@ -153,7 +165,7 @@ def load_topK_pids(topK_path, qrels):
 
 
 def load_collection(collection_path):
-    print_message("#> Loading collection...")
+    print_message("#> Loading collection...", collection_path)
 
     collection = []
 
@@ -174,6 +186,27 @@ def load_collection(collection_path):
     print()
 
     return collection
+
+
+def load_collection_fid(collection_path):
+  print_message("#> Loading collection...", collection_path)
+  collection: List[str] = []
+  id2raw: Dict[int, Dict] = {}
+
+  with open(collection_path) as f:
+    header = f.readline().strip().split('\t')
+    assert len(header) == 3 and set(header) == {'id', 'text', 'title'}
+    text_first = header[1] == 'text'
+    for line_idx, line in enumerate(f):
+      if line_idx % (1000 * 1000) == 0:
+        print(f'{line_idx // 1000 // 1000}M', end=' ', flush=True)
+      pid, text, title = line.rstrip('\n').split('\t')
+      if not text_first:
+        text, title = title, text
+      passage = title + ' | ' + text
+      collection.append(passage)
+      id2raw[line_idx] = {'id': pid, 'text': text, 'title': title}
+  return collection, id2raw
 
 
 def load_colbert(args, do_print=True):

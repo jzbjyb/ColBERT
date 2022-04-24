@@ -7,7 +7,7 @@
 import os
 import itertools
 
-from colbert.evaluation.loaders import load_collection
+from colbert.evaluation.loaders import load_collection, load_collection_fid
 from colbert.infra.run import Run
 
 
@@ -28,12 +28,18 @@ class Collection:
         # TODO: Load here too. Basically, let's make data a property function and, on first call, either load or get __data.
         return len(self.data)
 
+    def keep(self, first: int):
+      self.data = self.data[:first]
+
     def _load_file(self, path):
         self.path = path
         return self._load_tsv(path) if path.endswith('.tsv') else self._load_jsonl(path)
 
     def _load_tsv(self, path):
+      if path.endswith('collection.tsv'):
         return load_collection(path)
+      data, self.id2raw = load_collection_fid(path)
+      return data
 
     def _load_jsonl(self, path):
         raise NotImplementedError()
