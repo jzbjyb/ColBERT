@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
-num_gpu=1
+num_gpu=$1
 
 data_root=../FiD/open_domain_data
-index_short_name=$1
+index_short_name=$2
 model=downloads/colbertv2.0
-other="${@:2}"
+other="${@:3}"
 
 if [[ ${index_short_name} == 'nq_test_top10' ]]; then
   queries=${data_root}/NQ/test.json
@@ -18,7 +18,7 @@ elif [[ ${index_short_name} == 'msmarcoqa_dev' ]]; then
 elif [[ ${index_short_name} == 'bioasq_500k_test' ]]; then
   queries=${data_root}/bioasq_500k.nosummary/test.json
   passages=${data_root}/bioasq_500k.nosummary/psgs.test_aggregate.tsv
-  passage_maxlength=1024  # TODO use 512?
+  passage_maxlength=512  # TODO cannot afford 1024
 elif [[ ${index_short_name} == 'fiqa' ]]; then
   queries=${data_root}/fiqa/test.json
   passages=${data_root}/fiqa/psgs.tsv
