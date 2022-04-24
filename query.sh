@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
 
-num_gpu=$1
-
 data_root=../FiD/open_domain_data
+
+num_gpu=$1
 index_short_name=$2
-model=downloads/colbertv2.0
-other="${@:3}"
+model_name=$3
+other="${@:4}"
+
+if [[ ${model_name} == 'ms' ]]; then
+  model=downloads/colbertv2.0
+elif [[ ${model_name} == 'nq' ]]; then
+  model=downloads/colbert-60000.dnn
+fi
 
 if [[ ${index_short_name} == 'nq_test_top10' ]]; then
   queries=${data_root}/NQ/test.json
