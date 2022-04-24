@@ -4,6 +4,7 @@ import sys
 import json
 import argparse
 import torch
+import numpy as np
 from colbert.infra import Run, RunConfig, ColBERTConfig
 from colbert.data import Queries, Collection
 from colbert import Indexer, Searcher
@@ -44,6 +45,8 @@ if __name__ == '__main__':
   if args.debug:  # use the first 1k to debug
     collection.keep(1000)
   print(f'Loaded {len(queries)} queries and {len(collection)} passages')
+  print(f'QUERY: {queries[np.random.choice(len(queries))]}')
+  print(f'DOC: {collection[np.random.choice(len(collection))]}')
 
   # index
   with Run().context(RunConfig(nranks=args.ngpu, experiment=args.exp)):
