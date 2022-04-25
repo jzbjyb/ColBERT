@@ -34,6 +34,7 @@ class CollectionIndexer():
     def __init__(self, config: ColBERTConfig, collection):
         self.config = config
         self.rank, self.nranks = self.config.rank, self.config.nranks
+        self.faiss_ngpu = True if config.gpu_mode == 'default' else False  # use all or use none
 
         if self.config.rank == 0:
             self.config.help()
@@ -211,7 +212,7 @@ class CollectionIndexer():
 
         else:
             args_ = args_ + [[[sample]]]
-            centroids = compute_faiss_kmeans(*args_, gpu=self.rank)
+            centroids = compute_faiss_kmeans(*args_, gpu=self.faiss_ngpu)
 
         centroids = torch.nn.functional.normalize(centroids, dim=-1).half()
 

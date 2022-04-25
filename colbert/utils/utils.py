@@ -3,7 +3,7 @@ import tqdm
 import torch
 import datetime
 import itertools
-
+import subprocess
 from multiprocessing import Pool
 from collections import OrderedDict, defaultdict
 
@@ -308,3 +308,11 @@ def load_batch_backgrounds(args, qids):
         qbackgrounds.append(x)
     
     return qbackgrounds
+
+
+def get_gpu_mode():
+    p = subprocess.Popen(
+        "nvidia-smi --query | grep 'Compute Mode'", shell=True,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
+    mode = p.stdout.read().decode('utf-8').strip().split('\n', 1)[0].strip().split(':', 1)[1].strip().lower()
+    return mode

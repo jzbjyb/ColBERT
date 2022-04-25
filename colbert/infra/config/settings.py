@@ -3,7 +3,7 @@ import torch
 
 import __main__
 from dataclasses import dataclass
-from colbert.utils.utils import timestamp
+from colbert.utils.utils import timestamp, get_gpu_mode
 
 from .core_config import DefaultVal
 
@@ -26,6 +26,7 @@ class RunSettings:
     rank: int = DefaultVal(0)
     nranks: int = DefaultVal(1)
     amp: bool = DefaultVal(True)
+    gpu_mode: str = DefaultVal(get_gpu_mode())
 
     total_visible_gpus = torch.cuda.device_count()
     gpus: int = DefaultVal(total_visible_gpus)
