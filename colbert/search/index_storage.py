@@ -50,9 +50,9 @@ class IndexScorer(IndexLoader, CandidateGeneration):
 
     def retrieve(self, config, Q):
         Q = Q[:, :config.query_maxlen]   # NOTE: Candidate generation uses only the query tokens
-        embedding_ids = self.generate_candidates(config, Q)
+        pids, scores = self.generate_candidates(config, Q)
 
-        return embedding_ids
+        return pids, scores
 
     def embedding_ids_to_pids(self, embedding_ids):
         all_pids = torch.unique(self.emb2pid[embedding_ids.long()].cuda(), sorted=False)
@@ -60,11 +60,14 @@ class IndexScorer(IndexLoader, CandidateGeneration):
 
     def rank(self, config, Q, k):
         with torch.inference_mode():
-            pids = self.retrieve(config, Q)
-            scores = self.score_pids(config, Q, pids, k)
+            pids, scores = self.retrieve(config, Q)
 
-            scores_sorter = scores.sort(descending=True)
-            pids, scores = pids[scores_sorter.indices].tolist(), scores_sorter.values.tolist()
+            if config.no_rerank:
+                pids, scores = pids.tolist(), scores.tolist()
+            else:
+                scores = self.score_pids(config, Q, pids, k)
+                scores_sorter = scores.sort(descending=True)
+                pids, scores = pids[scores_sorter.indices].tolist(), scores_sorter.values.tolist()
 
             return pids, scores
 

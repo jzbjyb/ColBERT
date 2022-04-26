@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Union
 import os
 import sys
 import json
@@ -33,6 +33,10 @@ if __name__ == '__main__':
   parser.add_argument('--nbits', type=int, help='bits of each dimension', default=2)
   parser.add_argument('--doc_topk', type=int, help='topk documents returned', default=10)
   parser.add_argument('--ngpu', type=int, help='num of gpus', default=1)
+  parser.add_argument('--nprobe', type=int, help='num of cluster to query', default=2)
+  parser.add_argument('--ncandidates', type=int, help='num of doc to rerank', default=8192)
+  parser.add_argument('--no_rerank', action='store_true', help='no reranking')
+  parser.add_argument('--overwrite', type=str, help='whether overwrite the index', default=True)
   parser.add_argument('--debug', action='store_true')
   args = parser.parse_args()
 
@@ -52,11 +56,12 @@ if __name__ == '__main__':
   with Run().context(RunConfig(nranks=args.ngpu, experiment=args.exp)):
     config = ColBERTConfig(doc_maxlen=args.passage_maxlength, nbits=args.nbits)
     indexer = Indexer(checkpoint=args.model, config=config)
-    indexer.index(name=index_name, collection=collection, overwrite=True)
+    indexer.index(name=index_name, collection=collection, overwrite=args.overwrite)
 
   # query
   with Run().context(RunConfig(experiment=args.exp)):
     searcher = Searcher(index=index_name)
+    searcher.configure(nprobe=args.nprobe, ncandidates=args.ncandidates, no_rerank=args.no_rerank)
 
   # test
   query = queries[0]
@@ -66,7 +71,9 @@ if __name__ == '__main__':
     print(f'\t [{rank}] \t\t {score:.1f} \t\t {searcher.collection[id]}')
 
   # output
-  args.output = os.path.join('experiments', args.exp, 'indexes', index_name, 'result.json') \
+  args.output = os.path.join(
+    'experiments', args.exp, 'indexes', index_name,
+    f'result_{args.nprobe}probe_{args.ncandidates}cand{"_norerank" if args.no_rerank else ""}.json') \
     if args.output is None else args.output
   rankings = searcher.search_all(queries, k=args.doc_topk).todict()
   for i in range(len(rankings)):

@@ -37,8 +37,8 @@ class CandidateGeneration:
         pids, pids_counts = torch.unique_consecutive(pids, return_counts=True)
         pids, pids_counts = pids.cuda(), pids_counts.cuda()
 
-        if len(pids) <= ncandidates:
-            return pids
+        #if len(pids) <= ncandidates:
+        #    return pids
 
         pids_offsets = pids_counts.cumsum(dim=0) - pids_counts[0]
 
@@ -85,6 +85,10 @@ class CandidateGeneration:
         assert scores_lb.size(0) == pids.size(0)
 
         if scores_lb.size(0) > ncandidates:
-            pids = pids[scores_lb.topk(ncandidates, dim=-1, sorted=True).indices]
+            top_scores = scores_lb.topk(ncandidates, dim=-1, sorted=True)
+        else:
+            top_scores = scores_lb.topk(scores_lb.size(0), dim=-1, sorted=True)
+        pids = pids[top_scores.indices]
+        top_scores = top_scores.values
 
-        return pids
+        return pids, top_scores

@@ -160,5 +160,7 @@ class IndexingSettings:
 @dataclass
 class SearchSettings:
     nprobe: int = DefaultVal(2)
-    
+
     ncandidates: int = DefaultVal(8192)
+
+    no_rerank: bool = DefaultVal(False)
