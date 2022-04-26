@@ -151,6 +151,8 @@ class IndexingSettings:
 
     nbits: int = DefaultVal(1)
 
+    num_partitions: str = DefaultVal(None)
+
     kmeans_niters: int = DefaultVal(20)
     
     @property

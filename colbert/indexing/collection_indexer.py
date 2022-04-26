@@ -74,7 +74,12 @@ class CollectionIndexer():
         # Select the number of partitions
         num_passages = len(self.collection)
         self.num_embeddings_est = num_passages * avg_doclen_est
-        self.num_partitions = int(2 ** np.floor(np.log2(16 * np.sqrt(self.num_embeddings_est))))
+        if self.config.num_partitions == 'default':
+            self.num_partitions = int(2 ** np.floor(np.log2(16 * np.sqrt(self.num_embeddings_est))))
+        elif self.config.num_partitions.startswith('divide'):
+            self.num_partitions = int(self.num_embeddings_est // int(self.config.num_partitions[len('divide'):]))
+        else:
+            raise NotImplementedError
 
         Run().print_main(f'Creaing {self.num_partitions:,} partitions.')
         Run().print_main(f'*Estimated* {int(self.num_embeddings_est):,} embeddings.')

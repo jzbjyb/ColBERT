@@ -31,6 +31,8 @@ if __name__ == '__main__':
   parser.add_argument('--output', type=str, help='output file', default=None)
   parser.add_argument('--passage_maxlength', type=int, default=300, help='maximum number of tokens in a passage')
   parser.add_argument('--nbits', type=int, help='bits of each dimension', default=2)
+  parser.add_argument('--num_partitions', type=str, help='num of clusters in index', default='default',
+                      choices=['default', 'divide10'])
   parser.add_argument('--doc_topk', type=int, help='topk documents returned', default=10)
   parser.add_argument('--ngpu', type=int, help='num of gpus', default=1)
   parser.add_argument('--nprobe', type=int, help='num of cluster to query', default=2)
@@ -41,7 +43,8 @@ if __name__ == '__main__':
   args = parser.parse_args()
 
   args.exp = args.model.rsplit('/', 1)[1] if args.exp is None else args.exp
-  index_name = f'{args.index_name}.{args.nbits}bits'
+  index_name = f'{args.index_name}.{args.nbits}bits' \
+               f'{("." + args.num_partitions + "partition") if args.num_partitions != "default" else ""}'
 
   # load data
   queries = Queries(path=args.queries)
@@ -54,7 +57,7 @@ if __name__ == '__main__':
 
   # index
   with Run().context(RunConfig(nranks=args.ngpu, experiment=args.exp)):
-    config = ColBERTConfig(doc_maxlen=args.passage_maxlength, nbits=args.nbits)
+    config = ColBERTConfig(doc_maxlen=args.passage_maxlength, nbits=args.nbits, num_partitions=args.num_partitions)
     indexer = Indexer(checkpoint=args.model, config=config)
     indexer.index(name=index_name, collection=collection, overwrite=args.overwrite)
 
