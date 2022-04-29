@@ -1,7 +1,8 @@
 import torch
 from transformers import T5Tokenizer
 import sys
-sys.path.insert(0, '/home/jzh1syv/exp/FiD')
+from pathlib import Path
+sys.path.insert(0, f'{Path.home()}/exp/FiD')
 from src.model import FiDT5
 from colbert.infra.run import Run
 from colbert.utils.utils import batch

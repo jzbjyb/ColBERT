@@ -40,16 +40,26 @@ class Checkpoint(ColBERT):
 
                 return D
 
-    def queryFromText(self, queries, bsize=None, to_cpu=False, context=None):
+    def queryFromText(self, queries, bsize=None, to_cpu=False, context=None, return_more: bool = False):
         if bsize:
             batches = self.query_tokenizer.tensorize(queries, context=context, bsize=bsize)
             batches = [self.query(input_ids, attention_mask, to_cpu=to_cpu) for input_ids, attention_mask in batches]
             return torch.cat(batches)
 
         input_ids, attention_mask = self.query_tokenizer.tensorize(queries, context=context)
-        return self.query(input_ids, attention_mask)
+        result = self.query(input_ids, attention_mask)
+        if return_more:
+            result = (result if type(result) is tuple else (result,)) + (input_ids, attention_mask)
+        return result
 
-    def docFromText(self, docs, bsize=None, keep_dims=True, to_cpu=False, showprogress=False, return_tokens=False):
+    def docFromText(self,
+                    docs,
+                    bsize=None,
+                    keep_dims=True,
+                    to_cpu=False,
+                    showprogress=False,
+                    return_tokens=False,
+                    return_more: bool = False):
         assert keep_dims in [True, False, 'flatten']
 
         if bsize:
@@ -91,7 +101,10 @@ class Checkpoint(ColBERT):
             return ([D[idx] for idx in reverse_indices.tolist()], *returned_text)
 
         input_ids, attention_mask = self.doc_tokenizer.tensorize(docs)
-        return self.doc(input_ids, attention_mask, keep_dims=keep_dims, to_cpu=to_cpu)
+        result = self.doc(input_ids, attention_mask, keep_dims=keep_dims, to_cpu=to_cpu)
+        if return_more:
+            result = (result if type(result) is tuple else (result,)) + (input_ids, attention_mask)
+        return result
 
     def lazy_rank(self, queries, docs):
         Q = self.queryFromText(queries, bsize=128, to_cpu=True)
