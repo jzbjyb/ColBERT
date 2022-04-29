@@ -21,10 +21,13 @@ class CandidateGeneration:
     def generate_candidates(self, config, Q):
         nprobe = config.nprobe
         ncandidates = config.ncandidates
+        half_precision = config.half_precision
 
         assert isinstance(self.ivf, StridedTensor)
 
-        Q = Q.squeeze(0).cuda().half()
+        Q = Q.squeeze(0).cuda()
+        if half_precision:
+            Q = Q.half()
         assert Q.dim() == 2
 
         eids = self.generate_candidate_eids(Q, nprobe)

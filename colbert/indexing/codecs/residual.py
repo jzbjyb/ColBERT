@@ -15,15 +15,22 @@ class ResidualCodec:
 
     def __init__(self, config, centroids, avg_residual=None, bucket_cutoffs=None, bucket_weights=None):
         self.dim, self.nbits = config.dim, config.nbits
-        self.centroids = centroids.half().cuda()
+        self.half_precision = config.half_precision
+        self.centroids = centroids.cuda()
+        if self.half_precision:
+            self.centroids = self.centroids.half()
         self.avg_residual = avg_residual
 
         if torch.is_tensor(self.avg_residual):
-            self.avg_residual = self.avg_residual.half().cuda()
+            self.avg_residual = self.avg_residual.cuda()
+            if self.half_precision:
+                self.avg_residual = self.avg_residual.half()
         
         if torch.is_tensor(bucket_cutoffs):
             bucket_cutoffs = bucket_cutoffs.cuda()
-            bucket_weights = bucket_weights.half().cuda()
+            bucket_weights = bucket_weights.cuda()
+            if self.half_precision:
+                bucket_weights = bucket_weights.half()
 
         self.bucket_cutoffs = bucket_cutoffs
         self.bucket_weights = bucket_weights
@@ -67,7 +74,9 @@ class ResidualCodec:
         codes, residuals = [], []
 
         for batch in embs.split(1 << 18):
-            batch = batch.cuda().half()
+            batch = batch.cuda()
+            if self.half_precision:
+                batch = batch.half()
             codes_ = self.compress_into_codes(batch, out_device=batch.device)
             centroids_ = self.lookup_centroids(codes_, out_device=batch.device)
 
@@ -106,8 +115,10 @@ class ResidualCodec:
         codes = []
 
         bsize = (1 << 29) // self.centroids.size(0)
+        if self.half_precision:
+            embs = embs.half()
         for batch in embs.split(bsize):
-            indices = (self.centroids @ batch.T.cuda().half()).max(dim=0).indices.to(device=out_device)
+            indices = (self.centroids @ batch.T.cuda()).max(dim=0).indices.to(device=out_device)
             codes.append(indices)
 
         return torch.cat(codes)
@@ -140,7 +151,9 @@ class ResidualCodec:
             residuals_ = self.decompress_residuals(residuals_).to(device=centroids_.device)
 
             centroids_.add_(residuals_)
-            D_ = torch.nn.functional.normalize(centroids_, p=2, dim=-1).half()
+            D_ = torch.nn.functional.normalize(centroids_, p=2, dim=-1)
+            if self.half_precision:
+                D_ = D_.half()
             D.append(D_)
         
         return torch.cat(D)

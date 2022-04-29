@@ -19,6 +19,7 @@ class ColBERT(BaseColBERT):
             self.skiplist = {w: True
                              for symbol in string.punctuation
                              for w in [symbol, self.raw_tokenizer.encode(symbol, add_special_tokens=False)[0]]}
+        self.half_precision = self.colbert_config.half_precision
 
     def forward(self, Q, D):
         Q = self.query(*Q)
@@ -72,7 +73,9 @@ class ColBERT(BaseColBERT):
         mask = torch.tensor(self.mask(input_ids, skiplist=self.skiplist), device=self.device).unsqueeze(2).float()
         D = D * mask
 
-        D = torch.nn.functional.normalize(D, p=2, dim=2).half()
+        D = torch.nn.functional.normalize(D, p=2, dim=2)
+        if self.half_precision:
+            D = D.half()
 
         if keep_dims is False:
             D, mask = D.cpu(), mask.bool().cpu().squeeze(-1)

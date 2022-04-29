@@ -95,6 +95,8 @@ class ResourceSettings:
     collection: str = DefaultVal(None)
     queries: str = DefaultVal(None)
     index_name: str = DefaultVal(None)
+    fid_model_path: str = DefaultVal(None)
+    fid_head_index: int = DefaultVal(0)
 
 
 @dataclass
@@ -143,6 +145,8 @@ class TrainingSettings:
     distillation_alpha: float = DefaultVal(1.0)
 
     ignore_scores: bool = DefaultVal(False)
+
+    half_precision: bool = DefaultVal(True)
 
 
 @dataclass

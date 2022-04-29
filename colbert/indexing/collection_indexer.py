@@ -6,6 +6,7 @@ import ujson
 import faiss
 import torch
 import random
+from collections import defaultdict
 
 import numpy as np
 import torch.multiprocessing as mp
@@ -17,6 +18,7 @@ from colbert.infra.run import Run
 from colbert.infra.launcher import print_memory_stats
 from colbert.modeling.checkpoint import Checkpoint
 from colbert.data.collection import Collection
+from colbert.modeling.fid_wrapper import FiDCheckpoint
 
 from colbert.indexing.collection_encoder import CollectionEncoder
 from colbert.indexing.index_saver import IndexSaver
@@ -35,14 +37,25 @@ class CollectionIndexer():
         self.config = config
         self.rank, self.nranks = self.config.rank, self.config.nranks
         self.faiss_ngpu = True if config.gpu_mode == 'default' else False  # use all or use none
+        self.half_precision = self.config.half_precision
 
         if self.config.rank == 0:
             self.config.help()
 
         self.collection = Collection.cast(collection)
-        self.checkpoint = Checkpoint(self.config.checkpoint, colbert_config=self.config).cuda()
 
-        self.encoder = CollectionEncoder(config, self.checkpoint)
+        if config.fid_model_path is not None:
+            self.encoder = FiDCheckpoint(
+                config.fid_model_path,
+                doc_maxlen=config.doc_maxlen,
+                query_maxlen=config.query_maxlen,
+                head_idx=config.fid_head_index,
+                bsize=config.bsize,
+                half_precision=config.half_precision
+            ).cuda()
+        else:
+            self.checkpoint = Checkpoint(self.config.checkpoint, colbert_config=self.config).cuda()
+            self.encoder = CollectionEncoder(config, self.checkpoint)
         self.saver = IndexSaver(config)
 
         print_memory_stats(f'RANK:{self.rank}')
@@ -78,6 +91,8 @@ class CollectionIndexer():
             self.num_partitions = int(2 ** np.floor(np.log2(16 * np.sqrt(self.num_embeddings_est))))
         elif self.config.num_partitions.startswith('divide'):
             self.num_partitions = int(self.num_embeddings_est // int(self.config.num_partitions[len('divide'):]))
+        elif self.config.num_partitions.startswith('const'):
+            self.num_partitions = int(self.config.num_partitions[len('const'):])
         else:
             raise NotImplementedError
 
@@ -167,7 +182,8 @@ class CollectionIndexer():
         print_memory_stats(f'***1*** \t RANK:{self.rank}')
 
         # TODO: Allocate a float16 array. Load the samples from disk, copy to array.
-        sample = torch.empty(self.num_sample_embs, self.config.dim, dtype=torch.float16)
+        sample = torch.empty(self.num_sample_embs, self.config.dim,
+                             dtype=torch.float16 if self.half_precision else torch.float32)
 
         offset = 0
         for r in range(self.nranks):
@@ -188,7 +204,7 @@ class CollectionIndexer():
 
         print_memory_stats(f'***3*** \t RANK:{self.rank}')
 
-        sample, sample_heldout = sample.split(int(sample.size(0) - min(.5 * sample.size(0), 50_000)), dim=0)
+        sample, sample_heldout = sample.split(sample.size(0) - int(min(.5 * sample.size(0), 50_000)), dim=0)
 
         print_memory_stats(f'***4*** \t RANK:{self.rank}')
 
@@ -219,7 +235,9 @@ class CollectionIndexer():
             args_ = args_ + [[[sample]]]
             centroids = compute_faiss_kmeans(*args_, gpu=self.faiss_ngpu)
 
-        centroids = torch.nn.functional.normalize(centroids, dim=-1).half()
+        centroids = torch.nn.functional.normalize(centroids, dim=-1)
+        if self.half_precision:
+            centroids = centroids.half()
 
         return centroids
 
@@ -256,7 +274,10 @@ class CollectionIndexer():
             batches = self.collection.enumerate_batches(rank=self.rank)
             for chunk_idx, offset, passages in tqdm.tqdm(batches, disable=self.rank > 0):
                 embs, doclens = self.encoder.encode_passages(passages)
-                assert embs.dtype == torch.float16
+                if self.half_precision:
+                    assert embs.dtype == torch.float16
+                else:
+                    assert embs.dtype == torch.float32
 
                 Run().print_main(f"#> Saving chunk {chunk_idx}: \t {len(passages):,} passages "
                                  f"and {embs.size(0):,} embeddings. From #{offset:,} onward.")
@@ -332,6 +353,22 @@ class CollectionIndexer():
         print_memory_stats(f'RANK:{self.rank}')
 
         partitions, ivf_lengths = values.unique_consecutive(return_counts=True)
+        if partitions.size(0) < self.num_partitions:  # insert zeros if some partitions are empty
+            Run().print(f'#> !!! some partitions are empty: {partitions.size(0)} out of {self.num_partitions} are not empty')
+            _partitions = []
+            _ivf_lengths = []
+            for i in range(partitions.size(0)):
+                if len(_partitions) and partitions[i] > _partitions[-1] + 1:  # gap
+                    while partitions[i] > _partitions[-1] + 1:
+                        _partitions.append(_partitions[-1] + 1)
+                        _ivf_lengths.append(0)
+                _partitions.append(partitions[i].item())
+                _ivf_lengths.append(ivf_lengths[i].item())
+            while len(_partitions) < self.num_partitions:
+                _partitions.append(_partitions[-1] + 1)
+                _ivf_lengths.append(0)
+            partitions = torch.tensor(_partitions).to(partitions)
+            ivf_lengths = torch.tensor(_ivf_lengths).to(ivf_lengths)
 
         # All partitions should be non-empty. (We can use torch.histc otherwise.)
         assert partitions.size(0) == self.num_partitions, (partitions.size(), self.num_partitions)

@@ -7,6 +7,7 @@ from typing import Union
 from colbert.data import Collection, Queries, Ranking
 
 from colbert.modeling.checkpoint import Checkpoint
+from colbert.modeling.fid_wrapper import FiDCheckpoint
 from colbert.search.index_storage import IndexScorer
 
 from colbert.infra.provenance import Provenance
@@ -34,7 +35,16 @@ class Searcher:
         self.collection = Collection.cast(collection or self.config.collection)
         self.configure(checkpoint=self.checkpoint, collection=self.collection)
 
-        self.checkpoint = Checkpoint(self.checkpoint, colbert_config=self.config).cuda()
+        if self.config.fid_model_path is not None:
+            self.checkpoint = FiDCheckpoint(
+                self.config.fid_model_path,
+                doc_maxlen=self.config.doc_maxlen,
+                query_maxlen=self.config.query_maxlen,
+                head_idx=self.config.fid_head_index,
+                half_precision=self.config.half_precision
+            ).cuda()
+        else:
+            self.checkpoint = Checkpoint(self.checkpoint, colbert_config=self.config).cuda()
         self.ranker = IndexScorer(self.index)
 
         print_memory_stats()
