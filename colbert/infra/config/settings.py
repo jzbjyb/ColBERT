@@ -158,6 +158,8 @@ class IndexingSettings:
     num_partitions: str = DefaultVal(None)
 
     kmeans_niters: int = DefaultVal(20)
+
+    normalize: bool = DefaultVal(True)
     
     @property
     def index_path_(self):
@@ -170,3 +172,5 @@ class SearchSettings:
     ncandidates: int = DefaultVal(8192)
 
     no_rerank: bool = DefaultVal(False)
+
+    use_real_tokens: bool = DefaultVal(False)

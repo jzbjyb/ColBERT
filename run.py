@@ -41,7 +41,9 @@ if __name__ == '__main__':
   parser.add_argument('--nprobe', type=int, help='num of cluster to query', default=2)
   parser.add_argument('--ncandidates', type=int, help='num of doc to rerank', default=8192)
   parser.add_argument('--no_rerank', action='store_true', help='no reranking')
+  parser.add_argument('--use_real_tokens', action='store_true', help='only use real tokens without pad or mask tokens')
   parser.add_argument('--no_half', action='store_true', help='disable half precision')
+  parser.add_argument('--no_norm', action='store_true', help='disable normalization')
   parser.add_argument('--overwrite', type=str, help='whether overwrite the index', default=True)
   parser.add_argument('--debug', action='store_true')
   args = parser.parse_args()
@@ -76,6 +78,7 @@ if __name__ == '__main__':
                            fid_model_path=args.fid,
                            fid_head_index=args.fid_head_index,
                            half_precision=not args.no_half,
+                           normalize=not args.no_norm,
                            kmeans_niters=args.kmeans_niters,
                            **extra)
     indexer = Indexer(checkpoint=args.model, config=config)
@@ -84,7 +87,7 @@ if __name__ == '__main__':
   # query
   with Run().context(RunConfig(experiment=args.exp)):
     searcher = Searcher(index=index_name)
-    searcher.configure(nprobe=args.nprobe, ncandidates=args.ncandidates, no_rerank=args.no_rerank)
+    searcher.configure(nprobe=args.nprobe, ncandidates=args.ncandidates, no_rerank=args.no_rerank, use_real_tokens=args.use_real_tokens)
 
   # test
   query = queries[0]

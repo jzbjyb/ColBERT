@@ -14,7 +14,8 @@ class FiDCheckpoint():
                  query_maxlen: int,
                  head_idx: int,
                  bsize: int = None,
-                 half_precision: bool = True):
+                 half_precision: bool = True,
+                 normalize: bool = True):
         self.tokenizer = T5Tokenizer.from_pretrained('t5-base', return_dict=False)
         self.model = FiDT5.from_pretrained(model_path)
         self.model.eval()
@@ -23,20 +24,20 @@ class FiDCheckpoint():
         self.head_idx = head_idx
         self.bsize = bsize
         self.half_precision = half_precision
-        self.normalize = True  # consistent with colbert
+        self.normalize = normalize
         self.query_tokenizer = type('placeholder', (object,), {'query_maxlen': None})()
 
     def cuda(self):
         self.model.cuda()
         return self
 
-    def queryFromText(self, queries, bsize=None, to_cpu=False, context=None):
+    def queryFromText(self, queries, bsize=None, to_cpu=False, context=None, return_more: bool = False):
         if context is not None:
             raise NotImplementedError
         if bsize is None:
             bsize = len(queries)
         with torch.no_grad():
-            embs, masks = [], []
+            embs, idss, masks = [], [], []
             for batch_ind in range(0, len(queries), bsize):
                 batch = queries[batch_ind:batch_ind + bsize]
                 encoded_batch = self.tokenizer.batch_encode_plus(
@@ -56,10 +57,17 @@ class FiDCheckpoint():
                 if self.half_precision:
                     emb = emb.half()
                 embs.append(emb)
+                idss.append(ids)
                 masks.append(mask)
             embs = torch.cat(embs)
+            idss = torch.cat(idss)
+            masks = torch.cat(masks)
             if to_cpu:
                 embs = embs.cpu()
+                idss = idss.cpu()
+                masks = masks.cpu()
+            if return_more:
+                return embs, idss, masks
             return embs
 
     def docFromText(self, docs, bsize=None, keep_dims=True, to_cpu=False, showprogress=False, return_tokens=False):

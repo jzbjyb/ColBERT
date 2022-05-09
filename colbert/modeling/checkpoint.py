@@ -43,13 +43,19 @@ class Checkpoint(ColBERT):
     def queryFromText(self, queries, bsize=None, to_cpu=False, context=None, return_more: bool = False):
         if bsize:
             batches = self.query_tokenizer.tensorize(queries, context=context, bsize=bsize)
-            batches = [self.query(input_ids, attention_mask, to_cpu=to_cpu) for input_ids, attention_mask in batches]
-            return torch.cat(batches)
+            embs = [self.query(input_ids, attention_mask, to_cpu=to_cpu) for input_ids, attention_mask in batches]
+            if return_more:
+                embs = torch.cat(embs)
+                input_ids = torch.cat([input_ids for input_ids, _ in batches])
+                attention_mask = torch.cat([attention_mask for _, attention_mask in batches])
+                assert embs.size(0) == input_ids.size(0) == attention_mask.size(0)
+                return embs, input_ids, attention_mask
+            return torch.cat(embs)
 
         input_ids, attention_mask = self.query_tokenizer.tensorize(queries, context=context)
-        result = self.query(input_ids, attention_mask)
+        embs = self.query(input_ids, attention_mask)
         if return_more:
-            result = (result if type(result) is tuple else (result,)) + (input_ids, attention_mask)
+            result = (embs if type(embs) is tuple else (embs,)) + (input_ids, attention_mask)
         return result
 
     def docFromText(self,

@@ -16,6 +16,7 @@ class ResidualCodec:
     def __init__(self, config, centroids, avg_residual=None, bucket_cutoffs=None, bucket_weights=None):
         self.dim, self.nbits = config.dim, config.nbits
         self.half_precision = config.half_precision
+        self.normalize = config.normalize
         self.centroids = centroids.cuda()
         if self.half_precision:
             self.centroids = self.centroids.half()
@@ -118,7 +119,10 @@ class ResidualCodec:
         if self.half_precision:
             embs = embs.half()
         for batch in embs.split(bsize):
-            indices = (self.centroids @ batch.T.cuda()).max(dim=0).indices.to(device=out_device)
+            if self.normalize:
+                indices = (self.centroids @ batch.T.cuda()).max(dim=0).indices.to(device=out_device)
+            else:
+                indices = torch.cdist(self.centroids, batch.cuda(), p=2).min(dim=0).indices.to(device=out_device)
             codes.append(indices)
 
         return torch.cat(codes)
@@ -151,7 +155,10 @@ class ResidualCodec:
             residuals_ = self.decompress_residuals(residuals_).to(device=centroids_.device)
 
             centroids_.add_(residuals_)
-            D_ = torch.nn.functional.normalize(centroids_, p=2, dim=-1)
+            if self.normalize:
+                D_ = torch.nn.functional.normalize(centroids_, p=2, dim=-1)
+            else:
+                D_ = centroids_
             if self.half_precision:
                 D_ = D_.half()
             D.append(D_)

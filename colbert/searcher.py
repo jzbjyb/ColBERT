@@ -1,3 +1,4 @@
+from locale import normalize
 import os
 import torch
 
@@ -41,7 +42,8 @@ class Searcher:
                 doc_maxlen=self.config.doc_maxlen,
                 query_maxlen=self.config.query_maxlen,
                 head_idx=self.config.fid_head_index,
-                half_precision=self.config.half_precision
+                half_precision=self.config.half_precision,
+                normalize=self.config.normalize
             ).cuda()
         else:
             self.checkpoint = Checkpoint(self.checkpoint, colbert_config=self.config).cuda()
@@ -57,24 +59,28 @@ class Searcher:
         bsize = 128 if len(queries) > 128 else None
 
         self.checkpoint.query_tokenizer.query_maxlen = self.config.query_maxlen
-        Q = self.checkpoint.queryFromText(queries, bsize=bsize, to_cpu=True)
+        Q, input_ids, attention_mask = self.checkpoint.queryFromText(queries, bsize=bsize, to_cpu=True, return_more=True)
 
-        return Q
+        return Q, input_ids, attention_mask
 
     def search(self, text: str, k=10):
-        return self.dense_search(self.encode(text), k)
+        return self.dense_search(*self.encode(text), k)
 
     def search_all(self, queries: TextQueries, k=10):
         queries = Queries.cast(queries)
         queries_ = list(queries.values())
 
-        Q = self.encode(queries_)
+        Q, input_ids, attention_mask = self.encode(queries_)
 
-        return self._search_all_Q(queries, Q, k)
+        return self._search_all_Q(queries, Q, input_ids, attention_mask, k)
 
-    def _search_all_Q(self, queries, Q, k):
-        all_scored_pids = [list(zip(*self.dense_search(Q[query_idx:query_idx+1], k=k)))
-                           for query_idx in tqdm(range(Q.size(0)))]
+    def _search_all_Q(self, queries, Q, input_ids, attention_mask, k):
+        all_scored_pids = [list(zip(
+            *self.dense_search(
+                Q[query_idx:query_idx+1], 
+                input_ids[query_idx:query_idx+1], 
+                attention_mask[query_idx:query_idx+1], k=k)))
+                for query_idx in tqdm(range(Q.size(0)))]
 
         data = {qid: val for qid, val in zip(queries.keys(), all_scored_pids)}
 
@@ -86,7 +92,7 @@ class Searcher:
 
         return Ranking(data=data, provenance=provenance)
 
-    def dense_search(self, Q: torch.Tensor, k=10):
-        pids, scores = self.ranker.rank(self.config, Q, k)
+    def dense_search(self, Q: torch.Tensor, input_ids: torch.Tensor, attention_mask: torch.Tensor, k=10):
+        pids, scores = self.ranker.rank(self.config, Q, input_ids, attention_mask, k=k)
 
         return pids[:k], list(range(1, k+1)), scores[:k]

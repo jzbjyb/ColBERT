@@ -38,6 +38,7 @@ class CollectionIndexer():
         self.rank, self.nranks = self.config.rank, self.config.nranks
         self.faiss_ngpu = True if config.gpu_mode == 'default' else False  # use all or use none
         self.half_precision = self.config.half_precision
+        self.normalize = config.normalize
 
         if self.config.rank == 0:
             self.config.help()
@@ -51,7 +52,8 @@ class CollectionIndexer():
                 query_maxlen=config.query_maxlen,
                 head_idx=config.fid_head_index,
                 bsize=config.bsize,
-                half_precision=config.half_precision
+                half_precision=config.half_precision,
+                normalize=config.normalize
             ).cuda()
         else:
             self.checkpoint = Checkpoint(self.config.checkpoint, colbert_config=self.config).cuda()
@@ -165,7 +167,7 @@ class CollectionIndexer():
 
         sample, heldout = self._concatenate_and_split_sample()
 
-        centroids = self._train_kmeans(sample, shared_lists)
+        centroids, self.kmeans = self._train_kmeans(sample, shared_lists)
 
         print_memory_stats(f'RANK:{self.rank}')
         del sample
@@ -228,18 +230,19 @@ class CollectionIndexer():
             proc = mp.Process(target=compute_faiss_kmeans, args=args_)
 
             proc.start()
-            centroids = return_value_queue.get()
+            centroids, kmeans = return_value_queue.get()
             proc.join()
 
         else:
             args_ = args_ + [[[sample]]]
-            centroids = compute_faiss_kmeans(*args_, gpu=self.faiss_ngpu)
-
-        centroids = torch.nn.functional.normalize(centroids, dim=-1)
+            centroids, kmeans = compute_faiss_kmeans(*args_, gpu=self.faiss_ngpu)
+        
+        if self.normalize:
+            centroids = torch.nn.functional.normalize(centroids, dim=-1)
         if self.half_precision:
             centroids = centroids.half()
 
-        return centroids
+        return centroids, kmeans
 
     def _compute_avg_residual(self, centroids, heldout):
         compressor = ResidualCodec(config=self.config, centroids=centroids, avg_residual=None)
@@ -281,7 +284,7 @@ class CollectionIndexer():
 
                 Run().print_main(f"#> Saving chunk {chunk_idx}: \t {len(passages):,} passages "
                                  f"and {embs.size(0):,} embeddings. From #{offset:,} onward.")
-
+                
                 self.saver.save_chunk(chunk_idx, offset, embs, doclens)
                 del embs, doclens
 
@@ -369,6 +372,8 @@ class CollectionIndexer():
                 _ivf_lengths.append(0)
             partitions = torch.tensor(_partitions).to(partitions)
             ivf_lengths = torch.tensor(_ivf_lengths).to(ivf_lengths)
+        
+        print(ivf_lengths.size(), ivf_lengths.topk(10))
 
         # All partitions should be non-empty. (We can use torch.histc otherwise.)
         assert partitions.size(0) == self.num_partitions, (partitions.size(), self.num_partitions)
@@ -419,7 +424,7 @@ def compute_faiss_kmeans(dim, num_partitions, kmeans_niters, shared_lists, retur
     if return_value_queue is not None:
         return_value_queue.put(centroids)
 
-    return centroids
+    return centroids, kmeans
 
 
 """

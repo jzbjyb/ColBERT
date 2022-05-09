@@ -20,6 +20,7 @@ class ColBERT(BaseColBERT):
                              for symbol in string.punctuation
                              for w in [symbol, self.raw_tokenizer.encode(symbol, add_special_tokens=False)[0]]}
         self.half_precision = self.colbert_config.half_precision
+        self.normalize = self.colbert_config.normalize
 
     def forward(self, Q, D):
         Q = self.query(*Q)
@@ -61,7 +62,9 @@ class ColBERT(BaseColBERT):
         mask = torch.tensor(self.mask(input_ids, skiplist=[]), device=self.device).unsqueeze(2).float()
         Q = Q * mask
 
-        return torch.nn.functional.normalize(Q, p=2, dim=2)
+        if self.normalize:
+            Q = torch.nn.functional.normalize(Q, p=2, dim=2)
+        return Q
 
     def doc(self, input_ids, attention_mask, keep_dims=True):
         assert keep_dims in [True, False, 'return_mask']
@@ -73,7 +76,8 @@ class ColBERT(BaseColBERT):
         mask = torch.tensor(self.mask(input_ids, skiplist=self.skiplist), device=self.device).unsqueeze(2).float()
         D = D * mask
 
-        D = torch.nn.functional.normalize(D, p=2, dim=2)
+        if self.normalize:
+            D = torch.nn.functional.normalize(D, p=2, dim=2)
         if self.half_precision:
             D = D.half()
 

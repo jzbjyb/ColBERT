@@ -58,8 +58,12 @@ class IndexScorer(IndexLoader, CandidateGeneration):
         all_pids = torch.unique(self.emb2pid[embedding_ids.long()].cuda(), sorted=False)
         return all_pids
 
-    def rank(self, config, Q, k):
+    def rank(self, config, Q, input_ids, attention_mask, k):
         with torch.inference_mode():
+            if config.use_real_tokens:
+                assert Q.size(0) == attention_mask.size(0) == 1
+                Q = Q[:, :attention_mask[0].sum()]
+
             pids, scores = self.retrieve(config, Q)
 
             if config.no_rerank:
