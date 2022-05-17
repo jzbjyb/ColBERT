@@ -12,8 +12,10 @@ from colbert.infra.run import Run
 
 
 class Collection:
-    def __init__(self, path=None, data=None):
+    def __init__(self, path=None, data=None, use_fid_format: bool = False, keep_raw: bool = True):
         self.path = path
+        self.use_fid_format = use_fid_format
+        self.keep_raw = keep_raw
         self.data = data or self._load_file(path)
 
     def __iter__(self):
@@ -38,7 +40,7 @@ class Collection:
     def _load_tsv(self, path):
       if path.endswith('collection.tsv'):
         return load_collection(path)
-      data, self.id2raw = load_collection_fid(path)
+      data, self.id2raw = load_collection_fid(path, use_fid_format=self.use_fid_format, keep_raw=self.keep_raw, use_csv_reader=True)
       return data
 
     def _load_jsonl(self, path):

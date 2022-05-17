@@ -9,9 +9,9 @@ from colbert.evaluation.loaders import load_queries, load_queries_fid
 
 
 class Queries:
-    def __init__(self, path=None, data=None):
+    def __init__(self, path=None, data=None, use_fid_format: bool = False):
         self.path = path
-
+        self.use_fid_format = use_fid_format
         if data:
             assert isinstance(data, dict), type(data)
         self._load_data(data) or self._load_file(path)
@@ -52,7 +52,7 @@ class Queries:
             self.data = load_queries(path)
             return True
         else:  # load fid data
-            self.data, self.raw_queries = load_queries_fid(path)
+            self.data, self.raw_queries = load_queries_fid(path, use_fid_format=self.use_fid_format)
             return True
 
         # TODO: handle the following code

@@ -1,6 +1,7 @@
 from typing import List, Dict
 import json
 import os
+import csv
 import ujson
 import torch
 import random
@@ -32,13 +33,16 @@ def load_queries(queries_path):
     return queries
 
 
-def load_queries_fid(queries_path):
+def load_queries_fid(queries_path, use_fid_format: bool = False):
   queries = OrderedDict()
   print_message("#> Loading the queries from", queries_path, "...")
   with open(queries_path, 'r') as fin:
     data: List[Dict] = json.load(fin)
     for qid, query in enumerate(data):
-      queries[qid] = query['question']
+      if use_fid_format:
+        queries[qid] = 'question: ' + query['question']
+      else:
+        queries[qid] = query['question']
   return queries, data
 
 
@@ -188,24 +192,37 @@ def load_collection(collection_path):
     return collection
 
 
-def load_collection_fid(collection_path):
+def load_collection_fid(collection_path, use_fid_format: bool = False, keep_raw: bool = True, use_csv_reader: bool = False):
   print_message("#> Loading collection...", collection_path)
   collection: List[str] = []
   id2raw: Dict[int, Dict] = {}
 
   with open(collection_path) as f:
-    header = f.readline().strip().split('\t')
+    if use_csv_reader:
+      reader = csv.reader(f, delimiter='\t')
+      header = next(reader)
+    else:
+      header = f.readline().strip().split('\t')
     assert len(header) == 3 and set(header) == {'id', 'text', 'title'}
     text_first = header[1] == 'text'
-    for line_idx, line in enumerate(f):
+    for line_idx, line in enumerate(reader if use_csv_reader else f):
       if line_idx % (1000 * 1000) == 0:
         print(f'{line_idx // 1000 // 1000}M', end=' ', flush=True)
-      pid, text, title = line.rstrip('\n').split('\t')
+      if use_csv_reader:
+        pid, text, title = line
+      else:
+        pid, text, title = line.rstrip('\n').split('\t')
       if not text_first:
         text, title = title, text
-      passage = title + ' | ' + text
+      if use_fid_format:
+        passage = f'title: {title} context: {text}'
+      else:
+        passage = title + ' | ' + text
       collection.append(passage)
-      id2raw[line_idx] = {'id': pid, 'text': text, 'title': title}
+      if keep_raw:
+        id2raw[line_idx] = {'id': pid, 'text': text, 'title': title}
+      else:
+        id2raw[line_idx] = {'id': pid}
   return collection, id2raw
 
 

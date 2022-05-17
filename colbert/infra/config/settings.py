@@ -1,3 +1,4 @@
+from typing import Union, List
 import os
 import torch
 
@@ -26,7 +27,7 @@ class RunSettings:
     rank: int = DefaultVal(0)
     nranks: int = DefaultVal(1)
     amp: bool = DefaultVal(True)
-    gpu_mode: str = DefaultVal(get_gpu_mode())
+    gpu_mode: Union[str, List[int]] = DefaultVal(get_gpu_mode())
 
     total_visible_gpus = torch.cuda.device_count()
     gpus: int = DefaultVal(total_visible_gpus)

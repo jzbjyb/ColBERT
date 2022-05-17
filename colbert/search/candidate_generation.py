@@ -10,7 +10,14 @@ class CandidateGeneration:
         cells = cells.flatten().contiguous()  # (32 * nprobe,)
         cells = cells.unique(sorted=False)
 
-        eids, cell_lengths = self.ivf.lookup(cells)  # eids = (packedlen,)  lengths = (32 * nprobe,)
+        try:
+            eids, cell_lengths = self.ivf.lookup(cells)  # eids = (packedlen,)  lengths = (32 * nprobe,)
+        except:  # to avoid "nonzero is not supported for tensors with more than INT_MAX elements"
+            small_bs = 8
+            eids = []
+            for i in range(0, len(cells), small_bs):
+                eids.append(self.ivf.lookup(cells[i:i + small_bs])[0])
+            eids = torch.cat(eids)
 
         return eids.cuda().long()
 

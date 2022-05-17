@@ -17,6 +17,10 @@ if [[ ${index_short_name} == 'nq_test_top10' ]]; then
   queries=${data_root}/NQ/test.json
   passages=${data_root}/NQ/psgs_w100.test_top10_aggregate.tsv
   passage_maxlength=200
+elif [[ ${index_short_name} == 'nq' ]]; then
+  queries=${data_root}/NQ/test.json
+  passages=${data_root}/NQ/psgs_w100.tsv
+  passage_maxlength=200
 elif [[ ${index_short_name} == 'msmarcoqa_dev' ]]; then
   queries=${data_root}/msmarco_qa/dev.json
   passages=${data_root}/msmarco_qa/psgs.dev_aggregate.tsv

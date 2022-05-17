@@ -44,17 +44,21 @@ if __name__ == '__main__':
   parser.add_argument('--use_real_tokens', action='store_true', help='only use real tokens without pad or mask tokens')
   parser.add_argument('--no_half', action='store_true', help='disable half precision')
   parser.add_argument('--no_norm', action='store_true', help='disable normalization')
-  parser.add_argument('--overwrite', type=str, help='whether overwrite the index', default=True)
+  parser.add_argument('--overwrite', type=str, help='whether overwrite the index', default='reuse')
+  parser.add_argument('--onlyid', action='store_true', help='only store id in the final file to save memory')
   parser.add_argument('--debug', action='store_true')
   args = parser.parse_args()
 
-  if args.fid is not None:
+  use_fid = args.fid is not None
+  use_fid_format = use_fid
+  if use_fid:
     args.exp = args.fid[args.fid.find('trained_reader'):].rsplit('/')[1]
     extra = {'dim': 64}
   else:
     args.exp = args.model.rsplit('/', 1)[1] if args.exp is None else args.exp
     extra = {}
   if args.debug:
+    args.overwrite = True
     args.exp = 'debug'
   index_name = f'{args.index_name}.{args.nbits}bits' \
                f'{("." + str(args.kmeans_niters) + "iter") if args.kmeans_niters != 20 else ""}' \
@@ -62,8 +66,8 @@ if __name__ == '__main__':
                f'{".nohalf" if args.no_half else ""}'
 
   # load data
-  queries = Queries(path=args.queries)
-  collection = Collection(path=args.passages)
+  queries = Queries(path=args.queries, use_fid_format=use_fid_format)
+  collection = Collection(path=args.passages, use_fid_format=use_fid_format, keep_raw=not args.onlyid)
   if args.debug:  # use the first 1k to debug
     collection.keep(5000)
   print(f'Loaded {len(queries)} queries and {len(collection)} passages')
@@ -99,7 +103,12 @@ if __name__ == '__main__':
   # output
   args.output = os.path.join(
     'experiments', args.exp, 'indexes', index_name,
-    f'result_{args.nprobe}probe_{args.ncandidates}cand{"_norerank" if args.no_rerank else ""}.json') \
+    f'result_{args.nprobe}probe' + 
+    f'_{args.ncandidates}cand' + 
+    ('_norerank' if args.no_rerank else '') + 
+    ('_real' if args.use_real_tokens else '') + 
+    ('_onlyid' if args.onlyid else '') + 
+    '.json') \
     if args.output is None else args.output
   rankings = searcher.search_all(queries, k=args.doc_topk).todict()
   for i in range(len(rankings)):

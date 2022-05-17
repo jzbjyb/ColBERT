@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, List
 import os
 import tqdm
 import time
@@ -25,6 +25,9 @@ from colbert.indexing.index_saver import IndexSaver
 from colbert.utils.utils import flatten, print_message
 
 from colbert.indexing.codecs.residual import ResidualCodec
+from colbert.indexing.faiss_wrapper import faiss_kmeans_train
+
+faiss.Kmeans.train = faiss_kmeans_train
 
 
 def encode(config, collection, shared_lists, shared_queues):
@@ -36,7 +39,12 @@ class CollectionIndexer():
     def __init__(self, config: ColBERTConfig, collection):
         self.config = config
         self.rank, self.nranks = self.config.rank, self.config.nranks
-        self.faiss_ngpu = True if config.gpu_mode == 'default' else False  # use all or use none
+        if config.gpu_mode == 'default':
+            self.faiss_ngpu = True
+        elif len(config.gpu_mode) == 0:
+            self.faiss_ngpu = False
+        else:
+            self.faiss_ngpu = config.gpu_mode
         self.half_precision = self.config.half_precision
         self.normalize = config.normalize
 
@@ -410,7 +418,7 @@ class CollectionIndexer():
             f.write(ujson.dumps(d, indent=4) + '\n')
 
 
-def compute_faiss_kmeans(dim, num_partitions, kmeans_niters, shared_lists, return_value_queue=None, gpu: Union[int, bool]=True):
+def compute_faiss_kmeans(dim, num_partitions, kmeans_niters, shared_lists, return_value_queue=None, gpu: Union[int, bool, List[int]]=True):
     kmeans = faiss.Kmeans(dim, num_partitions, niter=kmeans_niters, gpu=gpu, verbose=True, seed=123)
 
     sample = shared_lists[0][0]

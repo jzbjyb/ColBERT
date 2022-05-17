@@ -314,5 +314,8 @@ def get_gpu_mode():
     p = subprocess.Popen(
         "nvidia-smi --query | grep 'Compute Mode'", shell=True,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
-    mode = p.stdout.read().decode('utf-8').strip().split('\n', 1)[0].strip().split(':', 1)[1].strip().lower()
-    return mode
+    modes = [gpu.strip().split(':', 1)[1].strip().lower() for gpu in p.stdout.read().decode('utf-8').strip().split('\n')]
+    if len(set(modes)) == 1:  # return the mode if all gpus are consistent
+        return modes[0]
+    else:  # otherwise return the index of gpus in default mode
+        return [i for i, mode in enumerate(modes) if mode == 'default']
