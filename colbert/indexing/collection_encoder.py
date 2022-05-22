@@ -16,18 +16,20 @@ class CollectionEncoder():
             return None, None
 
         with torch.inference_mode():
-            embs, doclens = [], []
+            embs, doclens, tokens = [], [], []
 
             # Batch here to avoid OOM from storing intermediate embeddings on GPU.
             # Storing on the GPU helps with speed of masking, etc.
             # But ideally this batching happens internally inside docFromText.
             for passages_batch in batch(passages, self.config.bsize * 50):
-                embs_, doclens_ = self.checkpoint.docFromText(passages_batch, bsize=self.config.bsize,
-                                                              keep_dims='flatten', showprogress=False)
+                embs_, doclens_, tokens_ = self.checkpoint.docFromText(passages_batch, bsize=self.config.bsize,
+                                                              keep_dims='flatten', showprogress=False, return_tokens=True)
                 embs.append(embs_)
                 doclens.extend(doclens_)
+                tokens.append(tokens_)
 
             embs = torch.cat(embs)
+            tokens = torch.cat(tokens)
 
             # embs, doclens = self.checkpoint.docFromText(passages, bsize=self.config.bsize,
             #                                                   keep_dims='flatten', showprogress=(self.config.rank < 1))
@@ -41,4 +43,4 @@ class CollectionEncoder():
         #     doclens = [d.size(0) for d in embs]
         #     embs = torch.cat(embs)
 
-        return embs, doclens
+        return embs, doclens, tokens

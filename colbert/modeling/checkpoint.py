@@ -23,6 +23,13 @@ class Checkpoint(ColBERT):
         self.doc_tokenizer = DocTokenizer(self.colbert_config)
 
         self.amp_manager = MixedPrecisionManager(True)
+    
+    def get_tokenizer(self, type: str = 'query'):
+        if type == 'query':
+            return self.query_tokenizer.tok
+        elif type == 'doc':
+            return self.doc_tokenizer.tok
+        raise ValueError
 
     def query(self, *args, to_cpu=False, **kw_args):
         with torch.no_grad():
@@ -99,7 +106,10 @@ class Checkpoint(ColBERT):
                 D = D.view(-1, self.colbert_config.dim)
                 D = D[mask.bool().flatten()].cpu()
 
-                return (D, doclens, *returned_text)
+                if return_tokens:
+                    returned_text = torch.cat(returned_text[0]).flatten()[mask.bool().flatten()].cpu()
+
+                return (D, doclens, returned_text)
 
             assert keep_dims is False
 

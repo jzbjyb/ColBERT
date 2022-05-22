@@ -97,8 +97,8 @@ if __name__ == '__main__':
   query = queries[0]
   print(f'#> {query}')
   results = searcher.search(query, k=3)
-  for id, rank, score in zip(*results):
-    print(f'\t [{rank}] \t\t {score:.1f} \t\t {searcher.collection[id]}')
+  for id, rank, score, qd_token_pairs in zip(*results):
+    print(f'\t [{rank}] \t\t {score:.1f} \t\t {searcher.collection[id]} \t\t {qd_token_pairs}')
 
   # output
   args.output = os.path.join(
@@ -112,7 +112,7 @@ if __name__ == '__main__':
     if args.output is None else args.output
   rankings = searcher.search_all(queries, k=args.doc_topk).todict()
   for i in range(len(rankings)):
-    ctxs: List[Dict] = [{**collection.id2raw[id], **{'score': score}} for id, rank, score in rankings[i]]
+    ctxs: List[Dict] = [{**collection.id2raw[id], **{'score': score, 'qd_token_pairs': qd_token_pairs}} for id, rank, score, qd_token_pairs in rankings[i]]
     queries.raw_queries[i]['ctxs'] = ctxs
   with open(args.output, 'w') as fout:
     json.dump(queries.raw_queries, fout, indent=2)

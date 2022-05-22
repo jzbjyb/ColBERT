@@ -93,6 +93,10 @@ class Searcher:
         return Ranking(data=data, provenance=provenance)
 
     def dense_search(self, Q: torch.Tensor, input_ids: torch.Tensor, attention_mask: torch.Tensor, k=10):
-        pids, scores = self.ranker.rank(self.config, Q, input_ids, attention_mask, k=k)
-
-        return pids[:k], list(range(1, k+1)), scores[:k]
+        qry_tokenizer, doc_tokenizer = self.checkpoint.get_tokenizer('query'), self.checkpoint.get_tokenizer('doc')
+        pids, scores, qa_token_pairs = self.ranker.rank(self.config, Q, input_ids, attention_mask, k=k, return_tokens=True)
+        ranks = list(range(1, k+1))
+        # convert token id to str
+        for i, _qa_token_pairs in enumerate(qa_token_pairs):
+            qa_token_pairs[i] = [(qry_tokenizer.convert_ids_to_tokens([qt])[0], doc_tokenizer.convert_ids_to_tokens([dt])[0], s) for (qt, dt), s in _qa_token_pairs] 
+        return pids, ranks, scores, qa_token_pairs

@@ -30,6 +30,13 @@ class FiDCheckpoint():
     def cuda(self):
         self.model.cuda()
         return self
+    
+    def get_tokenizer(self, type: str = 'query'):
+        if type == 'query':
+            return self.tokenizer
+        elif type == 'doc':
+            return self.tokenizer
+        raise ValueError
 
     def queryFromText(self, queries, bsize=None, to_cpu=False, context=None, return_more: bool = False):
         if context is not None:
@@ -71,12 +78,12 @@ class FiDCheckpoint():
             return embs
 
     def docFromText(self, docs, bsize=None, keep_dims=True, to_cpu=False, showprogress=False, return_tokens=False):
-        if keep_dims != 'flatten' or to_cpu != False or showprogress != False or return_tokens != False:
+        if keep_dims != 'flatten' or to_cpu != False or showprogress != False:
             raise NotImplementedError
         if bsize is None:
             bsize = len(docs)
         with torch.no_grad():
-            embs, masks = [], []
+            embs, masks, tokens = [], [], []
             for batch_ind in range(0, len(docs), bsize):
                 batch = docs[batch_ind:batch_ind + bsize]
                 encoded_batch = self.tokenizer.batch_encode_plus(
@@ -97,22 +104,29 @@ class FiDCheckpoint():
                     emb = emb.half()
                 embs.append(emb)
                 masks.append(mask)
-            embs, masks = torch.cat(embs), torch.cat(masks)
+                tokens.append(ids)
+            embs, masks, tokens = torch.cat(embs), torch.cat(masks), torch.cat(tokens)
             doclens = masks.sum(-1).tolist()
             embs = embs.view(-1, embs.size(-1))
             embs = embs[masks.flatten()].cpu()
-            return embs, doclens
+            tokens = tokens.flatten()[masks.flatten()].cpu()
+            if return_tokens:
+                return embs, doclens, tokens
+            else:
+                return embs, doclens
 
     def encode_passages(self, passages):
         Run().print(f"#> Encoding {len(passages)} passages..")
         if len(passages) == 0:
             return None, None
         with torch.inference_mode():
-            embs, doclens = [], []
+            embs, doclens, tokens = [], [], []
             for passages_batch in batch(passages, self.bsize * 50):
-                embs_, doclens_ = self.docFromText(
-                    passages_batch, bsize=self.bsize, keep_dims='flatten', showprogress=False)
+                embs_, doclens_, tokens_ = self.docFromText(
+                    passages_batch, bsize=self.bsize, keep_dims='flatten', showprogress=False, return_tokens=True)
                 embs.append(embs_)
                 doclens.extend(doclens_)
+                tokens.append(tokens_)
             embs = torch.cat(embs)
-        return embs, doclens
+            tokens = torch.cat(tokens)
+        return embs, doclens, tokens

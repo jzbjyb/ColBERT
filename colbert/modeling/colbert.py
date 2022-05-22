@@ -107,10 +107,13 @@ class ColBERT(BaseColBERT):
 # TODO: In Query/DocTokenizer, use colbert.raw_tokenizer
 
 # TODO: The masking below might also be applicable in the kNN part
-def colbert_score_reduce(scores_padded, D_mask, config: ColBERTConfig):
-    D_padding = ~D_mask.view(scores_padded.size(0), scores_padded.size(1)).bool()
+def colbert_score_reduce(scores_padded, D_mask, config: ColBERTConfig, tokens_padded=None):
+    D_padding = ~D_mask.view(scores_padded.size(0), scores_padded.size(1)).bool()  # (num_doc, doc_len, query_len)
     scores_padded[D_padding] = -9999
-    scores = scores_padded.max(1).values
+    scores, max_doc_token_ind = scores_padded.max(1)  # (num_doc, query_len)
+
+    if tokens_padded is not None:
+        tokens_selected = torch.gather(tokens_padded, 1, max_doc_token_ind.unsqueeze(1)).squeeze(1)  # (num_doc, query_len)
 
     assert config.interaction in ['colbert', 'flipr'], config.interaction
 
@@ -129,7 +132,10 @@ def colbert_score_reduce(scores_padded, D_mask, config: ColBERTConfig):
 
         return A + B
 
-    return scores.sum(-1)
+    final_score = scores.mean(-1)
+    if tokens_padded is not None:
+        return final_score, scores, tokens_selected
+    return final_score, scores, None
 
 
 # TODO: Wherever this is called, pass `config=`
@@ -153,7 +159,7 @@ def colbert_score(Q, D_padded, D_mask, config=ColBERTConfig()):
     return colbert_score_reduce(scores, D_mask, config)
 
 
-def colbert_score_packed(Q, D_packed, D_lengths, config=ColBERTConfig()):
+def colbert_score_packed(Q, D_packed, D_lengths, config=ColBERTConfig(), tokens_packed=None):
     """
         Works with a single query only.
     """
@@ -168,5 +174,11 @@ def colbert_score_packed(Q, D_packed, D_lengths, config=ColBERTConfig()):
     scores = D_packed @ Q.to(dtype=D_packed.dtype).T
 
     scores_padded, scores_mask = StridedTensor(scores, D_lengths).as_padded_tensor()
+    
+    tokens_padded = None
+    if tokens_packed is not None:
+        tokens_padded, _ = StridedTensor(tokens_packed, D_lengths).as_padded_tensor()  # (num_doc, doc_len)
+        tokens_padded = tokens_padded.unsqueeze(-1).repeat(1, 1, Q.size(0))  # (num_doc, doc_len, query_len)
+        assert tokens_padded.size() == scores_padded.size()
 
-    return colbert_score_reduce(scores_padded, scores_mask, config)
+    return colbert_score_reduce(scores_padded, scores_mask, config, tokens_padded=tokens_padded)

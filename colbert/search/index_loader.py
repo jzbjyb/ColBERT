@@ -17,6 +17,7 @@ class IndexLoader:
 
         self._load_doclens()
         self._load_embeddings()
+        self._load_tokens()
 
     def _load_codec(self):
         self.codec = ResidualCodec.load(self.index_path)
@@ -46,6 +47,16 @@ class IndexLoader:
     def _load_embeddings(self):
         self.embeddings = ResidualCodec.Embeddings.load_chunks(self.index_path, range(self.num_chunks),
                                                                self.num_embeddings)
+
+    def _load_tokens(self):
+        self.tokens = None
+        tokens = []
+        for chunk_idx in range(self.num_chunks):
+            fp = os.path.join(self.index_path, f'tokens.{chunk_idx}.pt')
+            if not os.path.exists(fp):
+                return
+            tokens.append(torch.load(fp, map_location='cpu'))
+        self.tokens = torch.cat(tokens).to(torch.int32)
 
     @property
     def metadata(self):

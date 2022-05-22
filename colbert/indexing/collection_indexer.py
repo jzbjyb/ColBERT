@@ -133,7 +133,7 @@ class CollectionIndexer():
         local_pids = self.collection.enumerate(rank=self.rank)
         local_sample = [passage for pid, passage in local_pids if pid in sampled_pids]
 
-        local_sample_embs, doclens = self.encoder.encode_passages(local_sample)
+        local_sample_embs, doclens = self.encoder.encode_passages(local_sample)[:2]
 
         self.num_sample_embs = torch.tensor([local_sample_embs.size(0)]).cuda()
         torch.distributed.all_reduce(self.num_sample_embs)
@@ -284,7 +284,7 @@ class CollectionIndexer():
         with self.saver.thread():
             batches = self.collection.enumerate_batches(rank=self.rank)
             for chunk_idx, offset, passages in tqdm.tqdm(batches, disable=self.rank > 0):
-                embs, doclens = self.encoder.encode_passages(passages)
+                embs, doclens, tokens = self.encoder.encode_passages(passages)
                 if self.half_precision:
                     assert embs.dtype == torch.float16
                 else:
@@ -293,8 +293,8 @@ class CollectionIndexer():
                 Run().print_main(f"#> Saving chunk {chunk_idx}: \t {len(passages):,} passages "
                                  f"and {embs.size(0):,} embeddings. From #{offset:,} onward.")
                 
-                self.saver.save_chunk(chunk_idx, offset, embs, doclens)
-                del embs, doclens
+                self.saver.save_chunk(chunk_idx, offset, embs, doclens, tokens)
+                del embs, doclens, tokens
 
     def finalize(self):
         if self.rank > 0:

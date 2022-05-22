@@ -2,6 +2,7 @@ import os
 import queue
 import ujson
 import threading
+import torch
 
 from contextlib import contextmanager
 
@@ -38,22 +39,25 @@ class IndexSaver():
             del self.saver_queue
             del self.codec
 
-    def save_chunk(self, chunk_idx, offset, embs, doclens):
+    def save_chunk(self, chunk_idx, offset, embs, doclens, tokens):
         compressed_embs = self.codec.compress(embs)
 
-        self.saver_queue.put((chunk_idx, offset, compressed_embs, doclens))
+        self.saver_queue.put((chunk_idx, offset, compressed_embs, doclens, tokens))
 
     def _saver_thread(self):
         for args in iter(self.saver_queue.get, None):
             self._write_chunk_to_disk(*args)
 
-    def _write_chunk_to_disk(self, chunk_idx, offset, compressed_embs, doclens):
+    def _write_chunk_to_disk(self, chunk_idx, offset, compressed_embs, doclens, tokens):
         path_prefix = os.path.join(self.config.index_path_, str(chunk_idx))
         compressed_embs.save(path_prefix)
 
         doclens_path = os.path.join(self.config.index_path_, f'doclens.{chunk_idx}.json')
         with open(doclens_path, 'w') as output_doclens:
             ujson.dump(doclens, output_doclens)
+        
+        tokens_path = os.path.join(self.config.index_path_, f'tokens.{chunk_idx}.pt')
+        torch.save(tokens, tokens_path)
 
         metadata_path = os.path.join(self.config.index_path_, f'{chunk_idx}.metadata.json')
         with open(metadata_path, 'w') as output_metadata:
