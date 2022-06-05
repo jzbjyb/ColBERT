@@ -29,6 +29,8 @@ if __name__ == '__main__':
   parser.add_argument('--fid_head_index', type=int, help='fid head index to use', default=None)
   parser.add_argument('--index_name', type=str, help='index name', default=f'{dataset}.{datasplit}')
   parser.add_argument('--queries', type=str, help='query file', default=queries)
+  parser.add_argument('--num_shards', type=int, default=1, help='split all queries into num_shards parts')
+  parser.add_argument('--shard_id', type=int, default=0, help='only run on this shard')
   parser.add_argument('--passages', type=str, help='passage file', default=passages)
   parser.add_argument('--output', type=str, help='output file', default=None)
   parser.add_argument('--passage_maxlength', type=int, default=300, help='maximum number of tokens in a passage')
@@ -112,15 +114,19 @@ if __name__ == '__main__':
     ('_onlyid' if args.onlyid else '') + 
     '.json') \
     if args.output is None else args.output
+
+  shard_size = int(np.ceil(len(queries) / args.num_shards))
+  start_id = shard_size * args.shard_id
+  end_id = min(start_id + shard_size, len(queries))
   save_batch_size = args.save_batch_size
   save_ind = 0
-  for save_batch in range(0, len(queries), save_batch_size):
-    queries_batch = queries.select(save_batch, save_batch + save_batch_size)
+  for save_batch in range(start_id, end_id, save_batch_size):
+    queries_batch = queries.select(save_batch, min(save_batch + save_batch_size, end_id))
     rankings = searcher.search_all(queries_batch, k=args.doc_topk).todict()
     for i in range(len(rankings)):
       ctxs: List[Dict] = [{**collection.id2raw[id], **{'score': score, 'qd_token_pairs': qd_token_pairs}} for id, rank, score, qd_token_pairs in rankings[i + save_batch]]
       queries_batch.raw_queries[i]['ctxs'] = ctxs
-    output = args.output if len(queries) <= save_batch_size else args.output + f'.{save_ind}'
+    output = args.output + ('' if args.num_shards <= 1 else f'.{args.shard_id:02d}') + ('' if (end_id - start_id) <= save_batch_size else f'.{save_ind:02d}')
     save_ind += 1
     with open(output, 'w') as fout:
       json.dump(queries_batch.raw_queries, fout, indent=2)
