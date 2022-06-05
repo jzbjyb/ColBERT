@@ -47,6 +47,7 @@ if __name__ == '__main__':
   parser.add_argument('--overwrite', type=str, help='whether overwrite the index', default='reuse')
   parser.add_argument('--onlyid', action='store_true', help='only store id in the final file to save memory')
   parser.add_argument('--debug', action='store_true')
+  parser.add_argument('--save_batch_size', type=int, default=5000, help='number of queries to run before saving')
   args = parser.parse_args()
 
   use_fid = args.fid is not None
@@ -101,18 +102,25 @@ if __name__ == '__main__':
     print(f'\t [{rank}] \t\t {score:.1f} \t\t {searcher.collection[id]} \t\t {qd_token_pairs}')
 
   # output
+  split = os.path.basename(args.queries).split('.')[0]
   args.output = os.path.join(
     'experiments', args.exp, 'indexes', index_name,
-    f'result_{args.nprobe}probe' + 
+    f'result_{split}_{args.nprobe}probe' + 
     f'_{args.ncandidates}cand' + 
     ('_norerank' if args.no_rerank else '') + 
     ('_real' if args.use_real_tokens else '') + 
     ('_onlyid' if args.onlyid else '') + 
     '.json') \
     if args.output is None else args.output
-  rankings = searcher.search_all(queries, k=args.doc_topk).todict()
-  for i in range(len(rankings)):
-    ctxs: List[Dict] = [{**collection.id2raw[id], **{'score': score, 'qd_token_pairs': qd_token_pairs}} for id, rank, score, qd_token_pairs in rankings[i]]
-    queries.raw_queries[i]['ctxs'] = ctxs
-  with open(args.output, 'w') as fout:
-    json.dump(queries.raw_queries, fout, indent=2)
+  save_batch_size = args.save_batch_size
+  save_ind = 0
+  for save_batch in range(0, len(queries), save_batch_size):
+    queries_batch = queries.select(save_batch, save_batch + save_batch_size)
+    rankings = searcher.search_all(queries_batch, k=args.doc_topk).todict()
+    for i in range(len(rankings)):
+      ctxs: List[Dict] = [{**collection.id2raw[id], **{'score': score, 'qd_token_pairs': qd_token_pairs}} for id, rank, score, qd_token_pairs in rankings[i + save_batch]]
+      queries_batch.raw_queries[i]['ctxs'] = ctxs
+    output = args.output if len(queries) <= save_batch_size else args.output + f'.{save_ind}'
+    save_ind += 1
+    with open(output, 'w') as fout:
+      json.dump(queries_batch.raw_queries, fout, indent=2)

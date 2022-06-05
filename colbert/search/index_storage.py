@@ -78,7 +78,7 @@ class IndexScorer(IndexLoader, CandidateGeneration):
                 sort_indices, scores = sort_indices[:k], scores[:k].tolist()
                 pids = pids[sort_indices].tolist()
                 tok_scores = tok_scores[sort_indices].tolist()
-                if return_tokens:
+                if return_tokens and doc_tokens is not None:
                     # associate qry token with doc token
                     if query_tokens.size(0) == 1:  # (1, query_len) the same query for all docs
                         query_tokens = query_tokens.repeat(doc_tokens.size(0), 1)

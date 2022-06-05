@@ -40,7 +40,8 @@ class Collection:
     def _load_tsv(self, path):
       if path.endswith('collection.tsv'):
         return load_collection(path)
-      data, self.id2raw = load_collection_fid(path, use_fid_format=self.use_fid_format, keep_raw=self.keep_raw, use_csv_reader=True)
+      use_csv_reader = path.endswith('psgs_w100.tsv')  # only the psgs file released by FAIR need to be loaded using csv reader
+      data, self.id2raw = load_collection_fid(path, use_fid_format=self.use_fid_format, keep_raw=self.keep_raw, use_csv_reader=use_csv_reader)
       return data
 
     def _load_jsonl(self, path):

@@ -55,9 +55,10 @@ class FiDCheckpoint():
                     truncation=True)
                 ids = encoded_batch['input_ids'].to(self.model.device)
                 mask = encoded_batch['attention_mask'].bool().to(self.model.device)
-                emb = self.model.encode_query(
+                emb, _ = self.model.encode_query(
                     input_ids=ids,
-                    attention_mask=mask)[:, 0, self.head_idx]  # layer 0
+                    attention_mask=mask)
+                emb = emb[:, 0, self.head_idx]  # layer 0
                 emb = emb * mask.to(emb).unsqueeze(-1)
                 if self.normalize:
                     emb = torch.nn.functional.normalize(emb, p=2, dim=2)

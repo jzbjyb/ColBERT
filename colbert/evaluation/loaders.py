@@ -7,6 +7,15 @@ import torch
 import random
 
 from collections import defaultdict, OrderedDict
+class SlicableOrderedDict(OrderedDict):
+  def __getitem__(self, k):
+    if not isinstance(k, slice):
+      return OrderedDict.__getitem__(self, k)
+    x = SlicableOrderedDict()
+    for idx, key in enumerate(self.keys()):
+      if k.start <= idx < k.stop:
+        x[key] = self[key]
+    return x
 
 from colbert.parameters import DEVICE
 from colbert.modeling.colbert import ColBERT
@@ -34,7 +43,7 @@ def load_queries(queries_path):
 
 
 def load_queries_fid(queries_path, use_fid_format: bool = False):
-  queries = OrderedDict()
+  queries = SlicableOrderedDict()
   print_message("#> Loading the queries from", queries_path, "...")
   with open(queries_path, 'r') as fin:
     data: List[Dict] = json.load(fin)

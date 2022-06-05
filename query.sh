@@ -19,6 +19,7 @@ if [[ ${index_short_name} == 'nq_test_top10' ]]; then
   passage_maxlength=200
 elif [[ ${index_short_name} == 'nq' ]]; then
   queries=${data_root}/NQ/test.json
+  #queries=${data_root}/NQ/train.json
   passages=${data_root}/NQ/psgs_w100.tsv
   passage_maxlength=200
 elif [[ ${index_short_name} == 'msmarcoqa_dev' ]]; then
@@ -56,5 +57,5 @@ python run.py \
   --passages ${passages} \
   --passage_maxlength ${passage_maxlength} \
   --ngpu ${num_gpu} \
-  --doc_topk 10 \
+  --doc_topk 100 \
   ${other}

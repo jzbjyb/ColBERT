@@ -1,3 +1,4 @@
+from tracemalloc import start
 from colbert.infra.run import Run
 import os
 import ujson
@@ -28,6 +29,13 @@ class Queries:
     def toDict(self):
         return {'provenance': self.provenance()}
 
+    def select(self, start_index: int, end_index: int):
+        q = Queries(path=self.path, data={}, use_fid_format=self.use_fid_format)
+        q.data = self.data[start_index:end_index]
+        if hasattr(self, 'raw_queries'):
+            q.raw_queries = self.raw_queries[start_index:end_index]
+        return q
+        
     def _load_data(self, data):
         if data is None:
             return None

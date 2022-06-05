@@ -34,7 +34,7 @@ class ResidualEmbeddingsStrided:
         codes_packed, codes_lengths = self.codes_strided.lookup(passage_ids)#.as_packed_tensor()
         residuals_packed, _ = self.residuals_strided.lookup(passage_ids)#.as_packed_tensor()
         embeddings_packed = self.codec.decompress(residual_embeddings.ResidualEmbeddings(codes_packed, residuals_packed))
-        if return_tokens:
+        if return_tokens and hasattr(self, 'tokens_strided'):
             tokens_packed, _ = self.tokens_strided.lookup(passage_ids)
             return embeddings_packed, codes_lengths, tokens_packed
         return embeddings_packed, codes_lengths, None
