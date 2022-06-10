@@ -97,8 +97,10 @@ class CollectionIndexer():
         # Select the number of partitions
         num_passages = len(self.collection)
         self.num_embeddings_est = num_passages * avg_doclen_est
-        if self.config.num_partitions == 'default':
-            self.num_partitions = int(2 ** np.floor(np.log2(16 * np.sqrt(self.num_embeddings_est))))
+        if self.config.num_partitions.startswith('default'):
+            ratio = self.config.num_partitions[len('default'):]
+            ratio = float(ratio) if len(ratio) else 1.0
+            self.num_partitions = int(2 ** np.floor(np.log2(ratio * 16 * np.sqrt(self.num_embeddings_est))))
         elif self.config.num_partitions.startswith('divide'):
             self.num_partitions = int(self.num_embeddings_est // int(self.config.num_partitions[len('divide'):]))
         elif self.config.num_partitions.startswith('const'):

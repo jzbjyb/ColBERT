@@ -37,7 +37,7 @@ if __name__ == '__main__':
   parser.add_argument('--nbits', type=int, help='bits of each dimension', default=2)
   parser.add_argument('--kmeans_niters', type=int, help='number of iterations in kmeans', default=20)
   parser.add_argument('--num_partitions', type=str, help='num of clusters in index', default='default',
-                      choices=['default', 'divide10', 'const10', 'const10000'])
+                      choices=['default', 'divide10', 'const10', 'const10000', 'default2'])
   parser.add_argument('--doc_topk', type=int, help='topk documents returned', default=10)
   parser.add_argument('--ngpu', type=int, help='num of gpus', default=1)
   parser.add_argument('--nprobe', type=int, help='num of cluster to query', default=2)
@@ -72,7 +72,8 @@ if __name__ == '__main__':
   queries = Queries(path=args.queries, use_fid_format=use_fid_format)
   collection = Collection(path=args.passages, use_fid_format=use_fid_format, keep_raw=not args.onlyid)
   if args.debug:  # use the first 1k to debug
-    collection.keep(5000)
+    #collection.keep(5000)
+    pass
   print(f'Loaded {len(queries)} queries and {len(collection)} passages')
   print(f'QUERY: {queries[np.random.choice(len(queries))]}')
   print(f'DOC: {collection[np.random.choice(len(collection))]}')
