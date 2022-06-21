@@ -49,7 +49,7 @@ if __name__ == '__main__':
   parser.add_argument('--overwrite', type=str, help='whether overwrite the index', default='reuse')
   parser.add_argument('--onlyid', action='store_true', help='only store id in the final file to save memory')
   parser.add_argument('--debug', action='store_true')
-  parser.add_argument('--save_batch_size', type=int, default=5000, help='number of queries to run before saving')
+  parser.add_argument('--save_batch_size', type=int, default=None, help='number of queries to run before saving')
   args = parser.parse_args()
 
   use_fid = args.fid is not None
@@ -119,7 +119,7 @@ if __name__ == '__main__':
   shard_size = int(np.ceil(len(queries) / args.num_shards))
   start_id = shard_size * args.shard_id
   end_id = min(start_id + shard_size, len(queries))
-  save_batch_size = args.save_batch_size
+  save_batch_size = args.save_batch_size or (end_id - start_id)
   save_ind = 0
   for save_batch in range(start_id, end_id, save_batch_size):
     queries_batch = queries.select(save_batch, min(save_batch + save_batch_size, end_id))

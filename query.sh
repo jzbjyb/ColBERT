@@ -6,6 +6,7 @@ num_gpu=$1
 index_short_name=$2
 model_name=$3
 other="${@:4}"
+save_batch_size=0
 
 if [[ ${model_name} == 'ms' ]]; then
   model=downloads/colbertv2.0
@@ -33,10 +34,16 @@ elif [[ ${index_short_name} == 'nq' ]]; then
   queries=${data_root}/NQ/train.json
   passages=${data_root}/NQ/psgs_w100.tsv
   passage_maxlength=200
+  save_batch_size=5000  # use for training set
 
 elif [[ ${index_short_name} == 'msmarcoqa_dev' ]]; then
   queries=${data_root}/msmarco_qa/dev.json
   passages=${data_root}/msmarco_qa/psgs.dev_aggregate.tsv
+  passage_maxlength=200
+
+elif [[ ${index_short_name} == 'msmarco' ]]; then
+  queries=${data_root}/msmarco/dev.json
+  passages=${data_root}/msmarco/psgs.tsv
   passage_maxlength=200
 
 elif [[ ${index_short_name} == 'bioasq_500k_test' ]]; then
@@ -49,6 +56,11 @@ elif [[ ${index_short_name} == 'bioasq_500k' ]]; then
   passages=${data_root}/bioasq_500k.nosummary/psgs.tsv
   passage_maxlength=512  # TODO cannot afford 1024
 
+elif [[ ${index_short_name} == 'bioasq_1m' ]]; then
+  queries=${data_root}/bioasq_1m/test.json
+  passages=${data_root}/bioasq_1m/psgs.tsv
+  passage_maxlength=512  # TODO cannot afford 1024
+
 elif [[ ${index_short_name} == 'fiqa' ]]; then
   queries=${data_root}/fiqa/test.json
   passages=${data_root}/fiqa/psgs.tsv
@@ -59,10 +71,30 @@ elif [[ ${index_short_name} == 'scifact' ]]; then
   passages=${data_root}/scifact/psgs.tsv
   passage_maxlength=512
 
+elif [[ ${index_short_name} == 'nfcorpus' ]]; then
+  queries=${data_root}/nfcorpus/test.json
+  passages=${data_root}/nfcorpus/psgs.tsv
+  passage_maxlength=512
+
 elif [[ ${index_short_name} == 'scidocs' ]]; then
   queries=${data_root}/scidocs/test.json
   passages=${data_root}/scidocs/psgs.tsv
   passage_maxlength=512
+
+elif [[ ${index_short_name} == 'trec_covid' ]]; then
+  queries=${data_root}/trec_covid/test.json
+  passages=${data_root}/trec_covid/psgs.tsv
+  passage_maxlength=512
+
+elif [[ ${index_short_name} == 'touche2020' ]]; then
+  queries=${data_root}/touche2020/test.json
+  passages=${data_root}/touche2020/psgs.tsv
+  passage_maxlength=512
+
+elif [[ ${index_short_name} == 'quora' ]]; then
+  queries=${data_root}/quora/test.json
+  passages=${data_root}/quora/psgs.tsv
+  passage_maxlength=200
 
 elif [[ ${index_short_name} == 'cqadupstack_android' ]]; then
   passages=${data_root}/cqadupstack/android/psgs.tsv
@@ -136,4 +168,5 @@ python run.py \
   --passage_maxlength ${passage_maxlength} \
   --ngpu ${num_gpu} \
   --doc_topk 100 \
+  --save_batch_size ${save_batch_size} \
   ${other}
