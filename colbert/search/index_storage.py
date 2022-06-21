@@ -67,7 +67,7 @@ class IndexScorer(IndexLoader, CandidateGeneration):
                 query_tokens = query_tokens[:, :query_attn_mask[0].sum()]  # (1, query_len)
 
             pids, scores = self.retrieve(config, Q)
-
+           
             qd_token_pairs = [[] for _ in range(len(pids))]
             if config.no_rerank:
                 pids, scores = pids[:k].tolist(), scores[:k].tolist()

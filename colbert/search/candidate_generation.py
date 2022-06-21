@@ -5,18 +5,18 @@ from .strided_tensor_core import _create_mask, _create_view
 
 
 class CandidateGeneration:
-    def generate_candidate_eids(self, Q, nprobe):
+    def generate_candidate_eids(self, Q, nprobe, skip_largest_view: bool = False):
         cells = (self.codec.centroids @ Q.T).topk(nprobe, dim=0, sorted=False).indices.permute(1, 0)  # (32, nprobe)
         cells = cells.flatten().contiguous()  # (32 * nprobe,)
         cells = cells.unique(sorted=False)
 
         try:
-            eids, cell_lengths = self.ivf.lookup(cells)  # eids = (packedlen,)  lengths = (32 * nprobe,)
+            eids, cell_lengths = self.ivf.lookup(cells, skip_largest_view=skip_largest_view)  # eids = (packedlen,)  lengths = (32 * nprobe,)
         except:  # to avoid "nonzero is not supported for tensors with more than INT_MAX elements"
             small_bs = 8
             eids = []
             for i in range(0, len(cells), small_bs):
-                eids.append(self.ivf.lookup(cells[i:i + small_bs])[0])
+                eids.append(self.ivf.lookup(cells[i:i + small_bs], skip_largest_view=skip_largest_view)[0])
             eids = torch.cat(eids)
 
         return eids.cuda().long()
@@ -29,6 +29,7 @@ class CandidateGeneration:
         nprobe = config.nprobe
         ncandidates = config.ncandidates
         half_precision = config.half_precision
+        skip_largest_view = config.skip_largest_view
 
         assert isinstance(self.ivf, StridedTensor)
 
@@ -36,8 +37,8 @@ class CandidateGeneration:
         if half_precision:
             Q = Q.half()
         assert Q.dim() == 2
-
-        eids = self.generate_candidate_eids(Q, nprobe)
+        
+        eids = self.generate_candidate_eids(Q, nprobe, skip_largest_view=skip_largest_view)
         eids = torch.unique(eids, sorted=False)
 
         pids = self.emb2pid[eids.long()].cuda()
@@ -54,7 +55,6 @@ class CandidateGeneration:
 
         eids = eids[sorter.indices]
         scores = self.generate_candidate_scores(Q, eids)
-
         stride = pids_counts.max().item()
 
         scores_dim1, scores_dim2 = scores.size()

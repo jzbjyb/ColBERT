@@ -175,3 +175,5 @@ class SearchSettings:
     no_rerank: bool = DefaultVal(False)
 
     use_real_tokens: bool = DefaultVal(False)
+
+    skip_largest_view: bool = DefaultVal(False)

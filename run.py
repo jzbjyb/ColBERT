@@ -44,6 +44,7 @@ if __name__ == '__main__':
   parser.add_argument('--ncandidates', type=int, help='num of doc to rerank', default=8192)
   parser.add_argument('--no_rerank', action='store_true', help='no reranking')
   parser.add_argument('--use_real_tokens', action='store_true', help='only use real tokens without pad or mask tokens')
+  parser.add_argument('--skip_largest_view', action='store_true', help='skip largest view caused by unbalanced clustering')
   parser.add_argument('--no_half', action='store_true', help='disable half precision')
   parser.add_argument('--no_norm', action='store_true', help='disable normalization')
   parser.add_argument('--overwrite', type=str, help='whether overwrite the index', default='reuse')
@@ -95,7 +96,7 @@ if __name__ == '__main__':
   # query
   with Run().context(RunConfig(experiment=args.exp)):
     searcher = Searcher(index=index_name)
-    searcher.configure(nprobe=args.nprobe, ncandidates=args.ncandidates, no_rerank=args.no_rerank, use_real_tokens=args.use_real_tokens)
+    searcher.configure(nprobe=args.nprobe, ncandidates=args.ncandidates, no_rerank=args.no_rerank, use_real_tokens=args.use_real_tokens, skip_largest_view=args.skip_largest_view)
 
   # test
   query = queries[0]
@@ -112,6 +113,7 @@ if __name__ == '__main__':
     f'_{args.ncandidates}cand' + 
     ('_norerank' if args.no_rerank else '') + 
     ('_real' if args.use_real_tokens else '') + 
+    ('_skiplargestview' if args.skip_largest_view else '') + 
     ('_onlyid' if args.onlyid else '') + 
     '.json') \
     if args.output is None else args.output

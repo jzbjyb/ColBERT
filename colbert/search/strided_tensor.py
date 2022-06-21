@@ -49,10 +49,18 @@ class StridedTensor(StridedTensorCore):
 
         return pids, lengths, offsets
 
-    def lookup(self, pids, output='packed'):
+    def lookup(self, pids, output='packed', skip_largest_view: bool = False):
+        largest_view = self.strides[-1]
+        second_largest_view = self.strides[-2]
         pids, lengths, offsets = self._prepare_lookup(pids)
+        if skip_largest_view:
+            skip_mask = lengths <= second_largest_view
+            pids = pids[skip_mask]
+            lengths = lengths[skip_mask]
+            offsets = offsets[skip_mask]
 
         stride = lengths.max().item()
+        print(stride, [s for s in self.strides if stride <= s])
         stride = next(s for s in self.strides if stride <= s)
 
         tensor = self.views[stride][offsets].cuda()
