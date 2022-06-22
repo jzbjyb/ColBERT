@@ -60,7 +60,6 @@ class StridedTensor(StridedTensorCore):
             offsets = offsets[skip_mask]
 
         stride = lengths.max().item()
-        print(stride, [s for s in self.strides if stride <= s])
         stride = next(s for s in self.strides if stride <= s)
 
         tensor = self.views[stride][offsets].cuda()
